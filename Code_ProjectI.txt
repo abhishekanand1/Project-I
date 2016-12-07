@@ -1,0 +1,280 @@
+The problem mentioned below revolves around movies dataset. The dataset contains 4 files which are follows,
+File Name 				Description / Schema 
+
+movies.dat 				MovieID – Title – Genres 
+
+1-Toy Story (1995)-Animation|Children's|Comedy
+2-Jumanji (1995)-Adventure|Children's|Fantasy
+3-Grumpier Old Men (1995)-Comedy|Romance
+4-Waiting to Exhale (1995)-Comedy|Drama
+
+ratings.dat	 			UserID – MovieID – Rating – Timestamp
+
+1-1193-5-978300760
+1-661-3-978302109
+1-914-3-978301968
+1-3408-4-978300275
+
+users.dat 				UserID – Gender – Age – Occupation – ZipCode 
+
+1-F-1-10-48067
+2-M-56-16-70072
+3-M-25-15-55117
+4-M-45-7-02460
+
+
+1. Top ten most viewed movies with their movies Name (Ascending or Descending order) 
+
+Code:
+
+
+movies = LOAD 'movies' USING PigStorage('-') AS (MovieID:int, Title:chararray, Genres:chararray);
+dump movies;
+describe movies;
+
+ratings = LOAD 'ratings' USING PigStorage ('-') AS (UserID:int, MovieID:int, Rating:int, Timestamp:int);
+dump ratings;
+describe ratings;
+
+users = LOAD 'users' USING PigStorage ('-') AS (UserID:int, Gender:chararray, Age:int, Occupation:int, ZipCode:int);
+dump users;
+describe users;
+
+--group
+
+grouped_MovieID = group ratings by MovieID;
+dump grouped_MovieID;
+
+--join and count operation
+
+grouped_MovieID_count = foreach grouped_MovieID generate group, COUNT(ratings.UserID) AS cnt;
+dump grouped_MovieID_count;
+describe grouped_MovieID_count;
+
+
+joined_data = join grouped_MovieID_count by group, movies by MovieID;
+dump joined_data;
+describe joined_data;
+
+filtered_joined_data = foreach joined_data generate grouped_MovieID_count::group,grouped_MovieID_count::cnt ,movies::Title;
+dump filtered_joined_data;
+
+--sort
+
+sorted_filtered_joined_data = order filtered_joined_data  by cnt desc;
+dump sorted_filtered_joined_data;
+describe sorted_filtered_joined_data;
+
+final_data = foreach sorted_filtered_joined_data generate grouped_MovieID_count::group,movies::Title;
+dump final_data;
+
+top_ten_movies = limit final_data 10;
+dump top_ten_movies;
+
+(2858,American Beauty (1999))
+(260,Star Wars: Episode IV )
+(1196,Star Wars: Episode V )
+(1210,Star Wars: Episode VI )
+(480,Jurassic Park (1993))
+(2028,Saving Private Ryan (1998))
+(589,Terminator 2: Judgment Day (1991))
+(2571,Matrix, The (1999))
+(1270,Back to the Future (1985))
+(593,Silence of the Lambs, The (1991))
+
+
+2. Top twenty rated movies (Condition : The movie should be rated/viewed by at least 40 users) 
+
+
+
+Code:
+
+
+movies = LOAD 'movies' USING PigStorage('-') AS (MovieID:int, Title:chararray, Genres:chararray);
+dump movies;
+describe movies;
+
+ratings = LOAD 'ratings' USING PigStorage ('-') AS (UserID:int, MovieID:int, Rating:int, Timestamp:int);
+dump ratings;
+describe ratings;
+
+grouped_MovieID = group ratings by MovieID;
+dump grouped_MovieID;
+
+grouped_MovieID_count =  foreach grouped_MovieID generate group, COUNT(ratings.UserID) AS cnt,  AVG(ratings.Rating) AS avrg;
+dump grouped_MovieID_count;
+
+joined_data = join grouped_MovieID_count by group, movies by MovieID;
+dump joined_data;
+
+filtered_joined_data = filter joined_data by cnt>40;
+dump filtered_joined_data;
+
+sorted_filtered_joined_data = order filtered_joined_data by avrg desc;
+dump sorted_filtered_joined_data;
+
+filtered_data =limit sorted_filtered_joined_data 20;
+dump filtered_data;
+describe filtered_data;
+
+top_twenty_rated_movies = foreach filtered_data generate grouped_MovieID_count::group, grouped_MovieID_count::cnt, grouped_MovieID_count::avrg,movies::Title;
+
+dump top_twenty_rated_movies;
+
+Output:
+
+(2905,69,4.608695652173913,Sanjuro (1962))
+(2019,628,4.560509554140127,Seven Samurai (The Magnificent Seven) (Shichinin no                                                                                         samurai) (1954))
+(318,2227,4.554557700942973,Shawshank Redemption, The (1994))
+(858,2223,4.524966261808367,Godfather, The (1972))
+(745,657,4.52054794520548,Close Shave, A (1995))
+(50,1783,4.517106001121705,Usual Suspects, The (1995))
+(527,2304,4.510416666666667,Schindler's List (1993))
+(1148,882,4.507936507936508,Wrong Trousers, The (1993))
+(922,470,4.491489361702127,Sunset Blvd. (a.k.a. Sunset Boulevard) (1950))
+(1198,2514,4.477724741447892,Raiders of the Lost Ark (1981))
+(904,1050,4.476190476190476,Rear Window (1954))
+(1178,230,4.473913043478261,Paths of Glory (1957))
+(260,2991,4.453694416583082,Star Wars: Episode IV )
+(1212,480,4.452083333333333,Third Man, The (1949))
+(750,1367,4.4498902706656915,Dr. Strangelove or: How I Learned to Stop Worrying                                                                                         and Love the Bomb (1963))
+(720,438,4.426940639269406,Wallace & Gromit: The Best of Aardman Animation (1996                                                                                        ))
+(1207,928,4.425646551724138,To Kill a Mockingbird (1962))
+(3435,551,4.415607985480944,Double Indemnity (1944))
+(912,1669,4.412822049131217,Casablanca (1942))
+(670,56,4.410714285714286,World of Apu, The (Apur Sansar) (1959))
+
+
+3. Top twenty rated movies (which is calculated in the previous step) with no of views in the following age group
+ (Age group :
+	 1. Young (<20 years), 
+	2. Young Adult(20-40 years), 
+	3.adult (> 40years) )
+	
+File Name 				Description / Schema 
+
+movies.dat 				MovieID – Title – Genres 
+
+1-Toy Story (1995)-Animation|Children's|Comedy
+2-Jumanji (1995)-Adventure|Children's|Fantasy
+3-Grumpier Old Men (1995)-Comedy|Romance
+4-Waiting to Exhale (1995)-Comedy|Drama
+
+ratings.dat	 			UserID – MovieID – Rating – Timestamp
+
+1-1193-5-978300760
+1-661-3-978302109
+1-914-3-978301968
+1-3408-4-978300275
+
+users.dat 				UserID – Gender – Age – Occupation – ZipCode 
+
+1-F-1-10-48067
+2-M-56-16-70072
+3-M-25-15-55117
+4-M-45-7-02460
+
+
+
+movies = LOAD 'movies' USING PigStorage('-') AS (MovieID:int, Title:chararray, Genres:chararray);
+dump movies;
+describe movies;
+
+ratings = LOAD 'ratings' USING PigStorage ('-') AS (UserID:int, MovieID:int, Rating:int, Timestamp:int);
+dump ratings;
+describe ratings;
+
+users = LOAD 'users' USING PigStorage ('-') AS (UserID:int, Gender:chararray, Age:int, Occupation:int, ZipCode:int);
+dump users;
+describe users;
+
+joined_ratings_users = join ratings by UserID, users by UserID;
+dump joined_ratings_users;
+describe joined_ratings_users;
+
+grouped_MovieID = group joined_ratings_users by MovieID;
+dump grouped_MovieID;
+
+
+grouped_MovieID_count =  foreach grouped_MovieID generate group, COUNT(ratings.UserID) AS cnt,  AVG(ratings.Rating) AS avrg;
+dump grouped_MovieID_count;
+
+joined_data = join grouped_MovieID_count by group, movies by MovieID;
+dump joined_data;
+
+sorted_joined_data = order joined_data by cnt desc;
+dump sorted_joined_data;
+
+filtered_data =limit sorted_joined_data 20;
+dump filtered_data;
+describe filtered_data;
+
+top_twenty_rated_movies = foreach filtered_data generate grouped_MovieID_count::group, grouped_MovieID_count::cnt, grouped_MovieID_count::avrg,movies::Title;
+dump top_twenty_rated_movies;
+
+
+
+4. Top ten critics (Users who have given very low ratings; Condition : The users should have at least rated 40 movies)
+
+Code:
+
+movies = LOAD 'movies' USING PigStorage('-') AS (MovieID:int, Title:chararray, Genres:chararray);
+dump movies;
+describe movies;
+
+users = LOAD 'users' USING PigStorage ('-') AS (UserID:int, Gender:chararray, Age:int, Occupation:int, ZipCode:int);
+dump users;
+
+ratings = LOAD 'ratings' USING PigStorage ('-') AS (UserID:int, MovieID:int, Rating:int, Timestamp:int);
+dump ratings;
+describe ratings;
+
+grouped_UserID = group ratings by UserID;
+dump grouped_UserID;
+
+grouped_UserID_count =  foreach grouped_UserID generate group, COUNT(ratings.UserID) AS cnt,  AVG(ratings.Rating) AS avrg;
+dump grouped_UserID_count;
+
+joined_data = join grouped_UserID_count by group, users by UserID;
+dump joined_data;
+
+filtered_joined_data = filter joined_data by cnt>40;
+dump filtered_joined_data;
+
+sorted_filtered_joined_data = order filtered_joined_data by avrg asc;
+dump sorted_filtered_joined_data;
+
+filtered_data =limit sorted_filtered_joined_data 10;
+dump filtered_data;
+describe filtered_data;
+
+top_ten_critics = foreach filtered_data generate users::UserID,users::Gender,users::Age,grouped_UserID_count::cnt, grouped_UserID_count::avrg;
+dump top_ten_critics;
+describe top_ten_critics;
+
+top_ten_critics: {users::UserID: int,users::Gender: chararray,users::Age: int,grouped_UserID_count::cnt: long,grouped_UserID_count::avrg: double}
+
+
+Output:
+
+(3598,M,56,65,1.0153846153846153)
+(4486,M,35,51,1.0588235294117647)
+(2744,M,18,138,1.3043478260869565)
+(4539,M,35,119,1.815126050420168)
+(5850,F,25,58,1.8448275862068966)
+(5334,F,56,55,1.9272727272727272)
+(5686,M,56,530,2.0452830188679245)
+(3209,M,25,230,2.0608695652173914)
+(1608,M,25,144,2.0833333333333335)
+(4575,F,1,125,2.088)
+
+
+
+----To get MovieIDs corresponding to each UserID---
+joined_critics_movieID = join top_ten_critics by users::UserID left outer, ratings by UserID;
+dump joined_critics_movieID;
+
+result = group joined_critics_movieID by ratings.UserID;
+dump result;
+
+
